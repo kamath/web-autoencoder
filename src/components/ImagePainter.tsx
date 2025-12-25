@@ -14,7 +14,6 @@ const MOMENT_IMAGES = [
 	"/moments/brussels.jpg",
 	"/moments/sausalito.jpg",
 	"/moments/surprise.JPG",
-	"/moments/bday.jpg",
 	"/moments/france.JPG",
 ];
 
@@ -397,11 +396,10 @@ export function ImagePainter() {
 		<div className="min-h-screen bg-background p-4 md:p-8">
 			<div className="max-w-4xl mx-auto">
 				<h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-					Learning to see
+					Deconstructing Perception
 				</h1>
 				<p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
-					Watch a neural network learn to &quot;paint&quot; it pixel by pixel,
-					heavily inspired by{" "}
+					Heavily inspired by{" "}
 					<a
 						href="https://cs.stanford.edu/people/karpathy/convnetjs/demo/image_regression.html"
 						target="_blank"
