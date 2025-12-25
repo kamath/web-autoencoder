@@ -400,11 +400,11 @@ export function ImagePainter() {
 		<div className="min-h-screen bg-background p-4 md:p-8">
 			<div className="max-w-4xl mx-auto">
 				<h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-					Learning to see you
+					Learning to see
 				</h1>
 				<p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
-					Upload an image and watch a neural network learn to &quot;paint&quot;
-					it pixel by pixel.
+					Watch a neural network learn to &quot;paint&quot; it pixel by pixel,
+					heavily inspired by ConvNetJS by Andrej Karpathy.
 				</p>
 
 				{/* Image Display - Combined Card */}
@@ -507,33 +507,6 @@ export function ImagePainter() {
 						<h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">
 							Training Progress
 						</h2>
-						<div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
-							<div>
-								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
-									{trainingState.iteration.toLocaleString()}
-								</div>
-								<div className="text-xs md:text-sm text-muted-foreground">
-									Iteration
-								</div>
-							</div>
-							<div>
-								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
-									{trainingState.loss.toFixed(6)}
-								</div>
-								<div className="text-xs md:text-sm text-muted-foreground">
-									Loss (MSE)
-								</div>
-							</div>
-							<div>
-								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
-									{trainingState.currentLearningRate.toFixed(6)}
-								</div>
-								<div className="text-xs md:text-sm text-muted-foreground">
-									Current LR
-								</div>
-							</div>
-						</div>
-
 						{/* Action Buttons */}
 						<div className="flex gap-3 md:gap-4 mt-6">
 							<button
@@ -567,6 +540,34 @@ export function ImagePainter() {
 						{/* Configuration Options */}
 						{parametersExpanded && (
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-border">
+								{/* Training Stats */}
+								<div className="md:col-span-2 grid grid-cols-3 gap-2 md:gap-4 text-center pb-6 border-b border-border">
+									<div>
+										<div className="text-lg md:text-2xl font-mono font-bold text-primary">
+											{trainingState.iteration.toLocaleString()}
+										</div>
+										<div className="text-xs md:text-sm text-muted-foreground">
+											Iteration
+										</div>
+									</div>
+									<div>
+										<div className="text-lg md:text-2xl font-mono font-bold text-primary">
+											{trainingState.loss.toFixed(6)}
+										</div>
+										<div className="text-xs md:text-sm text-muted-foreground">
+											Loss (MSE)
+										</div>
+									</div>
+									<div>
+										<div className="text-lg md:text-2xl font-mono font-bold text-primary">
+											{trainingState.currentLearningRate.toFixed(6)}
+										</div>
+										<div className="text-xs md:text-sm text-muted-foreground">
+											Current LR
+										</div>
+									</div>
+								</div>
+
 								{/* File Upload */}
 								<div>
 									<label
