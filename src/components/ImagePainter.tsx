@@ -10,14 +10,13 @@ interface TrainingState {
 // Preset images in public/moments
 const MOMENT_IMAGES = [
 	"/moments/bday.jpg",
+	"/moments/sausalito.jpg",
 	"/moments/thailand.jpg",
 	"/moments/din.jpg",
 	"/moments/drinks.jpg",
 	"/moments/friendsonly.jpg",
 	"/moments/halloween.jpg",
 	"/moments/osl.jpg",
-	"/moments/plane.jpg",
-	"/moments/sausalito.jpg",
 ];
 
 export function ImagePainter() {
@@ -30,6 +29,9 @@ export function ImagePainter() {
 
 	const [imageLoaded, setImageLoaded] = useState(false);
 	const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+	const [fullResolutionImageUrl, setFullResolutionImageUrl] = useState<
+		string | null
+	>(null);
 	const [trainingState, setTrainingState] = useState<TrainingState>({
 		isTraining: false,
 		iteration: 0,
@@ -39,6 +41,7 @@ export function ImagePainter() {
 	const [workerReady, setWorkerReady] = useState(false);
 	const [currentImageIndex, setCurrentImageIndex] = useState(0);
 	const [parametersExpanded, setParametersExpanded] = useState(false);
+	const [showFullResolution, setShowFullResolution] = useState(false);
 
 	// Parameters (defaults match convnetjs)
 	const [learningRate, setLearningRate] = useState(0.01); // Initial learning rate, will decay automatically
@@ -65,6 +68,10 @@ export function ImagePainter() {
 			const img = new Image();
 			img.onload = () => {
 				originalImageRef.current = img;
+
+				// Store full resolution image
+				setFullResolutionImageUrl(url);
+
 				// Wait for worker to be ready before processing
 				const checkWorker = setInterval(() => {
 					if (workerRef.current) {
@@ -270,6 +277,8 @@ export function ImagePainter() {
 				img.onload = () => {
 					// Store original image for resizing later
 					originalImageRef.current = img;
+					// Store full resolution image
+					setFullResolutionImageUrl(e.target?.result as string);
 					processImage(img, imageSize);
 				};
 				img.src = e.target?.result as string;
@@ -651,21 +660,37 @@ export function ImagePainter() {
 					<div className="grid grid-cols-2 gap-2 md:gap-6">
 						{/* Original Image */}
 						<div>
-							<h2 className="text-sm md:text-xl font-semibold mb-2 md:mb-4 text-center">
-								Original
-							</h2>
+							<div className="flex items-center justify-center gap-2 mb-2 md:mb-4">
+								<h2 className="text-sm md:text-xl font-semibold text-center">
+									Original
+								</h2>
+								{originalImageUrl && (
+									<button
+										type="button"
+										onClick={() => setShowFullResolution(!showFullResolution)}
+										className="px-2 py-1 md:px-3 md:py-1.5 bg-secondary text-secondary-foreground rounded-md text-xs md:text-sm font-medium
+                      hover:opacity-90 transition-opacity"
+									>
+										{showFullResolution ? "View Input" : "View Full Res"}
+									</button>
+								)}
+							</div>
 							<div
 								className="flex items-center justify-center bg-muted rounded-lg overflow-hidden"
 								style={{ minHeight: imageSize * 2 + 32 }}
 							>
 								{originalImageUrl ? (
 									<img
-										src={originalImageUrl}
+										src={
+											showFullResolution
+												? fullResolutionImageUrl!
+												: originalImageUrl
+										}
 										alt="Original"
 										style={{
 											width: "100%",
 											height: "auto",
-											imageRendering: "pixelated",
+											imageRendering: showFullResolution ? "auto" : "pixelated",
 										}}
 									/>
 								) : (
