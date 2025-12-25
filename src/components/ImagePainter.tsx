@@ -141,7 +141,7 @@ export function ImagePainter() {
 
 	// Load blog post content
 	useEffect(() => {
-		fetch("/src/content/blog-post.md")
+		fetch("/content/blog-post.md")
 			.then((res) => res.text())
 			.then((text) => setBlogContent(text))
 			.catch((err) => console.error("Failed to load blog post:", err));
@@ -400,7 +400,7 @@ export function ImagePainter() {
 		<div className="min-h-screen bg-background p-4 md:p-8">
 			<div className="max-w-4xl mx-auto">
 				<h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-					Learning to see
+					Learning to see you
 				</h1>
 				<p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
 					Upload an image and watch a neural network learn to &quot;paint&quot;
@@ -751,20 +751,6 @@ export function ImagePainter() {
 						</div>
 					</div>
 				)}
-
-				{/* Info */}
-				<div className="mt-8 text-sm text-muted-foreground">
-					<h3 className="font-semibold text-foreground mb-2">How it works:</h3>
-					<p className="mb-2">
-						A deep neural network (7 hidden layers × 20 neurons) learns to map
-						pixel coordinates (x, y) to their RGB colors. The network uses
-						gradient descent with momentum to gradually improve its predictions.
-					</p>
-					<p>
-						Training runs in a Web Worker so your browser stays responsive while
-						the network learns.
-					</p>
-				</div>
 			</div>
 		</div>
 	);

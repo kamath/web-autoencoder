@@ -1,4 +1,4 @@
-Imagine you're a painter, with a canvas and a set of paints. You're told to paint a scene, but you're not allowed to look at the canvas while you paint; you instead have to look at the scene *for just one second*, turn around, then recreate the scene on your canvas from memory. 
+Imagine you're a painter painting a scene on a canvas. As a restriction though, you’re not allowed to look at the canvas while you paint. You instead have to look at the scene *for just one second*, turn around, then recreate the scene on your canvas from memory. 
 
 As a result, you start with broad strokes capturing the important details, and as you turn around and look at the canvas more, you get a better sense of the scene and can adjust the painting accordingly.
 
@@ -10,6 +10,10 @@ With humans, as time goes on, the sharp details of the memory get eroded by its 
 
 When I see an image from the past, both this autoencoder and my brain start a reconstruction process. A picture is repainted in my head and with the autoencoder, blurry in some details, yet brilliantly vivid in others.
 
-The part that makes us human though, is that unlike the AI, my head isn’t computing an exact reconstruction of the image. My head remembers the way girlfriend laughs at my dumb jokes and curses me for rotting her brain. It remembers the night my friends and I were drunk and out of toilet paper at 2am and stealthily stole heaps of TP from a nearby McDonald’s to bring back to the group. 
+Unlike the AI though, my head isn’t computing an exact reconstruction of the image. 
 
-Some memories are just better that way — inexact, imperfect, but vivid in the ways you reconstruct them.
+The AI reconstructs a picture of my friends and me drinking wine in an Airbnb. It won’t reconstruct the feeling of realizing we’re out of toilet paper at 2am and the drunken thrill of stealthily stealing heaps of TP from the nearby McDonalds. 
+
+It reconstructs a picture of my 26th birthday party, but not the rush from the surprise of seeing everyone there and reconnecting with friends after years on opposite coasts.
+
+Some memories are better that way — inexact, but vivid in the ways you reconstruct them.
