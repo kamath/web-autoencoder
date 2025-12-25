@@ -133,7 +133,7 @@ export function ImagePainter() {
 
 	// Load default image on mount
 	useEffect(() => {
-		loadImageFromUrl(MOMENT_IMAGES[0]);
+		loadImageFromUrl(MOMENT_IMAGES[0], true);
 	}, [loadImageFromUrl]);
 
 	// Navigate to next/previous image
@@ -358,11 +358,6 @@ export function ImagePainter() {
 		}
 	}, [learningRate, momentum, imageSize]);
 
-	// Render now
-	const renderNow = useCallback(() => {
-		workerRef.current?.postMessage({ type: "render" });
-	}, []);
-
 	// Update learning rate
 	const handleLearningRateChange = useCallback((value: number) => {
 		setLearningRate(value);
@@ -401,8 +396,159 @@ export function ImagePainter() {
 					it pixel by pixel.
 				</p>
 
+				{/* Image Display - Combined Card */}
+				<div className="bg-card border border-border rounded-lg p-3 md:p-6">
+					<div className="grid grid-cols-2 gap-2 md:gap-6">
+						{/* Original Image */}
+						<div>
+							<div className="flex items-center justify-center gap-2 mb-2 md:mb-4">
+								<h2 className="text-sm md:text-xl font-semibold text-center">
+									Original
+								</h2>
+								{originalImageUrl && (
+									<button
+										type="button"
+										onClick={() => setShowFullResolution(!showFullResolution)}
+										className="px-2 py-1 md:px-3 md:py-1.5 bg-secondary text-secondary-foreground rounded-md text-xs md:text-sm font-medium
+                      hover:opacity-90 transition-opacity"
+									>
+										{showFullResolution ? "View Input" : "View Full Res"}
+									</button>
+								)}
+							</div>
+							<div
+								className="flex items-center justify-center bg-muted rounded-lg overflow-hidden"
+								style={{ minHeight: imageSize * 2 + 32 }}
+							>
+								{originalImageUrl ? (
+									<img
+										src={
+											showFullResolution
+												? fullResolutionImageUrl!
+												: originalImageUrl
+										}
+										alt="Original"
+										style={{
+											width: "100%",
+											height: "auto",
+											imageRendering: showFullResolution ? "auto" : "pixelated",
+										}}
+									/>
+								) : (
+									<div className="text-muted-foreground text-xs md:text-sm px-2 text-center">
+										Upload an image to start
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Neural Network Output */}
+						<div>
+							<h2 className="text-sm md:text-xl font-semibold mb-2 md:mb-4 text-center">
+								Painted
+							</h2>
+							<div
+								className="flex items-center justify-center bg-muted rounded-lg overflow-hidden"
+								style={{ minHeight: imageSize * 2 + 32 }}
+							>
+								<canvas
+									ref={outputCanvasRef}
+									width={imageSize}
+									height={imageSize}
+									style={{
+										width: "100%",
+										height: "auto",
+										imageRendering: "pixelated",
+									}}
+									className="bg-black"
+								/>
+							</div>
+						</div>
+					</div>
+
+					{/* Image navigation - moved below the images */}
+					<div className="flex items-center justify-center gap-2 md:gap-4 mt-4 md:mt-6">
+						<button
+							type="button"
+							onClick={goToPrevImage}
+							className="px-3 py-1.5 md:px-4 md:py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm md:text-base
+                hover:opacity-90 transition-opacity"
+						>
+							Prev
+						</button>
+						<span className="text-xs md:text-sm text-muted-foreground">
+							{currentImageIndex + 1} / {MOMENT_IMAGES.length}
+						</span>
+						<button
+							type="button"
+							onClick={goToNextImage}
+							className="px-3 py-1.5 md:px-4 md:py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm md:text-base
+                hover:opacity-90 transition-opacity"
+						>
+							Next
+						</button>
+					</div>
+				</div>
+
+				{/* Training Stats */}
+				{imageLoaded && (
+					<div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
+						<h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">
+							Training Progress
+						</h2>
+						<div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+							<div>
+								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
+									{trainingState.iteration.toLocaleString()}
+								</div>
+								<div className="text-xs md:text-sm text-muted-foreground">
+									Iteration
+								</div>
+							</div>
+							<div>
+								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
+									{trainingState.loss.toFixed(6)}
+								</div>
+								<div className="text-xs md:text-sm text-muted-foreground">
+									Loss (MSE)
+								</div>
+							</div>
+							<div>
+								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
+									{trainingState.currentLearningRate.toFixed(6)}
+								</div>
+								<div className="text-xs md:text-sm text-muted-foreground">
+									Current LR
+								</div>
+							</div>
+						</div>
+
+						{/* Action Buttons */}
+						<div className="flex gap-3 md:gap-4 mt-6">
+							<button
+								type="button"
+								onClick={toggleTraining}
+								disabled={!imageLoaded || !workerReady}
+								className="px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium
+                disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-sm md:text-base"
+							>
+								{trainingState.isTraining ? "Pause" : "Start"}
+							</button>
+							<button
+								type="button"
+								onClick={resetTraining}
+								disabled={!imageLoaded}
+								className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium
+                disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-sm md:text-base"
+							>
+								Reset
+							</button>
+						</div>
+					</div>
+				)}
+
 				{/* Controls */}
-				<div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-6 md:mb-8">
+				<div className="bg-card border border-border rounded-lg p-4 md:p-6 my-6 md:my-8">
 					<button
 						type="button"
 						onClick={() => setParametersExpanded(!parametersExpanded)}
@@ -587,166 +733,6 @@ export function ImagePainter() {
 							</div>
 						</div>
 					)}
-
-					{/* Action Buttons */}
-					<div className="flex gap-4 mt-6">
-						<button
-							type="button"
-							onClick={toggleTraining}
-							disabled={!imageLoaded || !workerReady}
-							className="px-6 py-2 bg-primary text-primary-foreground rounded-md font-medium
-                disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-						>
-							{trainingState.isTraining ? "Pause" : "Start Training"}
-						</button>
-						<button
-							type="button"
-							onClick={resetTraining}
-							disabled={!imageLoaded}
-							className="px-6 py-2 bg-secondary text-secondary-foreground rounded-md font-medium
-                disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-						>
-							Reset
-						</button>
-						<button
-							type="button"
-							onClick={renderNow}
-							disabled={!imageLoaded || !workerReady}
-							className="px-6 py-2 bg-secondary text-secondary-foreground rounded-md font-medium
-                disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-						>
-							Render Now
-						</button>
-					</div>
-				</div>
-
-				{/* Training Stats */}
-				{imageLoaded && (
-					<div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-8">
-						<h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">
-							Training Progress
-						</h2>
-						<div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
-							<div>
-								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
-									{trainingState.iteration.toLocaleString()}
-								</div>
-								<div className="text-xs md:text-sm text-muted-foreground">
-									Iteration
-								</div>
-							</div>
-							<div>
-								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
-									{trainingState.loss.toFixed(6)}
-								</div>
-								<div className="text-xs md:text-sm text-muted-foreground">
-									Loss (MSE)
-								</div>
-							</div>
-							<div>
-								<div className="text-lg md:text-2xl font-mono font-bold text-primary">
-									{trainingState.currentLearningRate.toFixed(6)}
-								</div>
-								<div className="text-xs md:text-sm text-muted-foreground">
-									Current LR
-								</div>
-							</div>
-						</div>
-					</div>
-				)}
-
-				{/* Image Display - Combined Card */}
-				<div className="bg-card border border-border rounded-lg p-3 md:p-6">
-					<div className="grid grid-cols-2 gap-2 md:gap-6">
-						{/* Original Image */}
-						<div>
-							<div className="flex items-center justify-center gap-2 mb-2 md:mb-4">
-								<h2 className="text-sm md:text-xl font-semibold text-center">
-									Original
-								</h2>
-								{originalImageUrl && (
-									<button
-										type="button"
-										onClick={() => setShowFullResolution(!showFullResolution)}
-										className="px-2 py-1 md:px-3 md:py-1.5 bg-secondary text-secondary-foreground rounded-md text-xs md:text-sm font-medium
-                      hover:opacity-90 transition-opacity"
-									>
-										{showFullResolution ? "View Input" : "View Full Res"}
-									</button>
-								)}
-							</div>
-							<div
-								className="flex items-center justify-center bg-muted rounded-lg overflow-hidden"
-								style={{ minHeight: imageSize * 2 + 32 }}
-							>
-								{originalImageUrl ? (
-									<img
-										src={
-											showFullResolution
-												? fullResolutionImageUrl!
-												: originalImageUrl
-										}
-										alt="Original"
-										style={{
-											width: "100%",
-											height: "auto",
-											imageRendering: showFullResolution ? "auto" : "pixelated",
-										}}
-									/>
-								) : (
-									<div className="text-muted-foreground text-xs md:text-sm px-2 text-center">
-										Upload an image to start
-									</div>
-								)}
-							</div>
-						</div>
-
-						{/* Neural Network Output */}
-						<div>
-							<h2 className="text-sm md:text-xl font-semibold mb-2 md:mb-4 text-center">
-								Painted
-							</h2>
-							<div
-								className="flex items-center justify-center bg-muted rounded-lg overflow-hidden"
-								style={{ minHeight: imageSize * 2 + 32 }}
-							>
-								<canvas
-									ref={outputCanvasRef}
-									width={imageSize}
-									height={imageSize}
-									style={{
-										width: "100%",
-										height: "auto",
-										imageRendering: "pixelated",
-									}}
-									className="bg-black"
-								/>
-							</div>
-						</div>
-					</div>
-
-					{/* Image navigation - moved below the images */}
-					<div className="flex items-center justify-center gap-2 md:gap-4 mt-4 md:mt-6">
-						<button
-							type="button"
-							onClick={goToPrevImage}
-							className="px-3 py-1.5 md:px-4 md:py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm md:text-base
-                hover:opacity-90 transition-opacity"
-						>
-							Prev
-						</button>
-						<span className="text-xs md:text-sm text-muted-foreground">
-							{currentImageIndex + 1} / {MOMENT_IMAGES.length}
-						</span>
-						<button
-							type="button"
-							onClick={goToNextImage}
-							className="px-3 py-1.5 md:px-4 md:py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm md:text-base
-                hover:opacity-90 transition-opacity"
-						>
-							Next
-						</button>
-					</div>
 				</div>
 
 				{/* Info */}
