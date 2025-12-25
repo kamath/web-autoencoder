@@ -11,14 +11,11 @@ interface TrainingState {
 
 // Preset images in public/moments
 const MOMENT_IMAGES = [
-	"/moments/bday.jpg",
+	"/moments/brussels.jpg",
 	"/moments/sausalito.jpg",
-	"/moments/thailand.jpg",
-	"/moments/din.jpg",
-	"/moments/drinks.jpg",
-	"/moments/friendsonly.jpg",
-	"/moments/halloween.jpg",
-	"/moments/osl.jpg",
+	"/moments/surprise.JPG",
+	"/moments/bday.jpg",
+	"/moments/france.JPG",
 ];
 
 export function ImagePainter() {
