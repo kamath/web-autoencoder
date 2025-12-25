@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface TrainingState {
 	isTraining: boolean;
@@ -42,6 +44,7 @@ export function ImagePainter() {
 	const [currentImageIndex, setCurrentImageIndex] = useState(0);
 	const [parametersExpanded, setParametersExpanded] = useState(false);
 	const [showFullResolution, setShowFullResolution] = useState(true);
+	const [blogContent, setBlogContent] = useState("");
 
 	// Parameters (defaults match convnetjs)
 	const [learningRate, setLearningRate] = useState(0.01); // Initial learning rate, will decay automatically
@@ -135,6 +138,14 @@ export function ImagePainter() {
 	useEffect(() => {
 		loadImageFromUrl(MOMENT_IMAGES[0], true);
 	}, [loadImageFromUrl]);
+
+	// Load blog post content
+	useEffect(() => {
+		fetch("/src/content/blog-post.md")
+			.then((res) => res.text())
+			.then((text) => setBlogContent(text))
+			.catch((err) => console.error("Failed to load blog post:", err));
+	}, []);
 
 	// Navigate to next/previous image
 	const goToNextImage = useCallback(() => {
@@ -389,7 +400,7 @@ export function ImagePainter() {
 		<div className="min-h-screen bg-background p-4 md:p-8">
 			<div className="max-w-4xl mx-auto">
 				<h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-					Neural Network Image Painter
+					Learning to see
 				</h1>
 				<p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
 					Upload an image and watch a neural network learn to &quot;paint&quot;
@@ -729,6 +740,15 @@ export function ImagePainter() {
 								</div>
 							</div>
 						)}
+					</div>
+				)}
+
+				{/* Blog Post */}
+				{blogContent && (
+					<div className="mt-8 bg-card px-4 md:px-6">
+						<div className="markdown-content">
+							<Markdown remarkPlugins={[remarkGfm]}>{blogContent}</Markdown>
+						</div>
 					</div>
 				)}
 
