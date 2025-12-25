@@ -2,7 +2,7 @@ Imagine you're a painter painting a scene on a canvas. As a restriction though, 
 
 As a result, you start with broad strokes capturing the important details, and as you turn around and look at the canvas more, you get a better sense of the scene and can adjust the painting accordingly.
 
-This process of distilling a grand scene into its core essence is quite beautiful. In Machine Learning, this study is formalized as *dimensionality reduction*, i.e. the process of reducing the noise in complex data. An *autoencoder*, visualized here, is one such form of dimensionality reduction. This specific one is heavily inspired by [ConvNetJS](https://cs.stanford.edu/people/karpathy/convnetjs/demo/image_regression.html), a project by Andrej Karpathy.
+This process of distilling a grand scene into its core essence is quite beautiful. In Machine Learning, this study is formalized as *dimensionality reduction*, i.e. the process of reducing the noise in complex data. An *autoencoder*, visualized here, is one such form of dimensionality reduction.
 
 It’s captivating to visualize the process of perception, but especially as it relates to humans vs AI. 
 

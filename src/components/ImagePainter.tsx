@@ -404,7 +404,16 @@ export function ImagePainter() {
 				</h1>
 				<p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
 					Watch a neural network learn to &quot;paint&quot; it pixel by pixel,
-					heavily inspired by ConvNetJS by Andrej Karpathy.
+					heavily inspired by{" "}
+					<a
+						href="https://cs.stanford.edu/people/karpathy/convnetjs/demo/image_regression.html"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-blue-500 hover:underline"
+					>
+						ConvNetJS
+					</a>{" "}
+					by Andrej Karpathy.
 				</p>
 
 				{/* Image Display - Combined Card */}
