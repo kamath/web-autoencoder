@@ -10,11 +10,10 @@ interface TrainingState {
 // Preset images in public/moments
 const MOMENT_IMAGES = [
 	"/moments/bday.jpg",
-	"/moments/bkk.jpg",
+	"/moments/thailand.jpg",
 	"/moments/din.jpg",
 	"/moments/drinks.jpg",
 	"/moments/friendsonly.jpg",
-	"/moments/fun.jpg",
 	"/moments/halloween.jpg",
 	"/moments/osl.jpg",
 	"/moments/plane.jpg",
