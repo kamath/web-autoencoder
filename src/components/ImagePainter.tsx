@@ -41,7 +41,7 @@ export function ImagePainter() {
 	const [workerReady, setWorkerReady] = useState(false);
 	const [currentImageIndex, setCurrentImageIndex] = useState(0);
 	const [parametersExpanded, setParametersExpanded] = useState(false);
-	const [showFullResolution, setShowFullResolution] = useState(false);
+	const [showFullResolution, setShowFullResolution] = useState(true);
 
 	// Parameters (defaults match convnetjs)
 	const [learningRate, setLearningRate] = useState(0.01); // Initial learning rate, will decay automatically
@@ -424,8 +424,8 @@ export function ImagePainter() {
 									<img
 										src={
 											showFullResolution
-												? fullResolutionImageUrl!
-												: originalImageUrl
+												? (fullResolutionImageUrl ?? originalImageUrl ?? "")
+												: (originalImageUrl ?? "")
 										}
 										alt="Original"
 										style={{
@@ -543,197 +543,194 @@ export function ImagePainter() {
 							>
 								Reset
 							</button>
+							<button
+								type="button"
+								onClick={() => setParametersExpanded(!parametersExpanded)}
+								className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium
+                hover:opacity-90 transition-opacity text-sm md:text-base"
+							>
+								Configure
+							</button>
 						</div>
+
+						{/* Configuration Options */}
+						{parametersExpanded && (
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-border">
+								{/* File Upload */}
+								<div>
+									<label
+										htmlFor={imageUploadId}
+										className="block text-sm font-medium mb-2"
+									>
+										Upload Image
+									</label>
+									<input
+										id={imageUploadId}
+										type="file"
+										accept="image/*"
+										onChange={handleFileUpload}
+										className="block w-full text-sm text-muted-foreground
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-md file:border-0
+                      file:text-sm file:font-medium
+                      file:bg-primary file:text-primary-foreground
+                      hover:file:opacity-90 cursor-pointer"
+									/>
+								</div>
+
+								{/* Image Size */}
+								<div>
+									<label
+										htmlFor={imageSizeId}
+										className="block text-sm font-medium mb-2"
+									>
+										Image Size: {imageSize}px
+									</label>
+									<input
+										id={imageSizeId}
+										type="range"
+										min="32"
+										max="128"
+										step="32"
+										value={imageSize}
+										onChange={(e) =>
+											handleImageSizeChange(Number(e.target.value))
+										}
+										disabled={trainingState.isTraining}
+										className="w-full"
+									/>
+									<p className="text-xs text-muted-foreground mt-2">
+										The size of the image to train on. Larger images take longer
+										but have more detail.
+									</p>
+								</div>
+
+								{/* Learning Rate */}
+								<div>
+									<label
+										htmlFor={learningRateId}
+										className="block text-sm font-medium mb-2"
+									>
+										Initial Learning Rate: {learningRate.toFixed(4)}
+									</label>
+									<input
+										id={learningRateId}
+										type="range"
+										min="0.001"
+										max="0.05"
+										step="0.001"
+										value={learningRate}
+										onChange={(e) =>
+											handleLearningRateChange(Number(e.target.value))
+										}
+										disabled={trainingState.isTraining}
+										className="w-full"
+									/>
+									<div className="flex justify-between text-xs text-muted-foreground mt-1">
+										<span>0.001 (slow)</span>
+										<span>0.05 (fast)</span>
+									</div>
+									<p className="text-xs text-muted-foreground mt-2">
+										Controls how fast the network learns. Higher values learn
+										faster but may be unstable. Automatically decreases over
+										time for better results.
+									</p>
+								</div>
+
+								{/* Momentum */}
+								<div>
+									<label
+										htmlFor={momentumId}
+										className="block text-sm font-medium mb-2"
+									>
+										Momentum: {momentum.toFixed(2)}
+									</label>
+									<input
+										id={momentumId}
+										type="range"
+										min="0"
+										max="0.99"
+										step="0.01"
+										value={momentum}
+										onChange={(e) =>
+											handleMomentumChange(Number(e.target.value))
+										}
+										className="w-full"
+									/>
+									<div className="flex justify-between text-xs text-muted-foreground mt-1">
+										<span>0 (none)</span>
+										<span>0.99 (high)</span>
+									</div>
+									<p className="text-xs text-muted-foreground mt-2">
+										Helps the network learn smoother and faster by remembering
+										previous adjustments. Higher values (like 0.9) work best for
+										most images.
+									</p>
+								</div>
+
+								{/* Batch Size */}
+								<div>
+									<label
+										htmlFor={batchSizeId}
+										className="block text-sm font-medium mb-2"
+									>
+										Batch Size: {batchSize}
+									</label>
+									<input
+										id={batchSizeId}
+										type="range"
+										min="1"
+										max="32"
+										step="1"
+										value={batchSize}
+										onChange={(e) =>
+											handleBatchSizeChange(Number(e.target.value))
+										}
+										className="w-full"
+									/>
+									<div className="flex justify-between text-xs text-muted-foreground mt-1">
+										<span>1 (SGD)</span>
+										<span>32 (mini-batch)</span>
+									</div>
+									<p className="text-xs text-muted-foreground mt-2">
+										Number of pixels to learn from at once. Smaller values (1-5)
+										give faster, more varied updates. Larger values give
+										smoother, more stable learning.
+									</p>
+								</div>
+
+								{/* Render Interval */}
+								<div>
+									<label
+										htmlFor={renderIntervalId}
+										className="block text-sm font-medium mb-2"
+									>
+										Render Interval: {renderInterval}ms
+									</label>
+									<input
+										id={renderIntervalId}
+										type="range"
+										min="50"
+										max="500"
+										step="50"
+										value={renderInterval}
+										onChange={(e) => setRenderInterval(Number(e.target.value))}
+										className="w-full"
+									/>
+									<div className="flex justify-between text-xs text-muted-foreground mt-1">
+										<span>50ms (smooth)</span>
+										<span>500ms (fast)</span>
+									</div>
+									<p className="text-xs text-muted-foreground mt-2">
+										How often to update the display. Lower values show smoother
+										progress but may slow down training. Higher values train
+										faster but update less frequently.
+									</p>
+								</div>
+							</div>
+						)}
 					</div>
 				)}
-
-				{/* Controls */}
-				<div className="bg-card border border-border rounded-lg p-4 md:p-6 my-6 md:my-8">
-					<button
-						type="button"
-						onClick={() => setParametersExpanded(!parametersExpanded)}
-						className="w-full flex items-center justify-between text-lg md:text-xl font-semibold mb-3 md:mb-4 hover:opacity-80 transition-opacity"
-					>
-						<span>Parameters</span>
-						<span className="text-xl md:text-2xl">
-							{parametersExpanded ? "−" : "+"}
-						</span>
-					</button>
-
-					{parametersExpanded && (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-							{/* File Upload */}
-							<div>
-								<label
-									htmlFor={imageUploadId}
-									className="block text-sm font-medium mb-2"
-								>
-									Upload Image
-								</label>
-								<input
-									id={imageUploadId}
-									type="file"
-									accept="image/*"
-									onChange={handleFileUpload}
-									className="block w-full text-sm text-muted-foreground
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-md file:border-0
-                  file:text-sm file:font-medium
-                  file:bg-primary file:text-primary-foreground
-                  hover:file:opacity-90 cursor-pointer"
-								/>
-							</div>
-
-							{/* Image Size */}
-							<div>
-								<label
-									htmlFor={imageSizeId}
-									className="block text-sm font-medium mb-2"
-								>
-									Image Size: {imageSize}px
-								</label>
-								<input
-									id={imageSizeId}
-									type="range"
-									min="32"
-									max="128"
-									step="32"
-									value={imageSize}
-									onChange={(e) =>
-										handleImageSizeChange(Number(e.target.value))
-									}
-									disabled={trainingState.isTraining}
-									className="w-full"
-								/>
-								<p className="text-xs text-muted-foreground mt-2">
-									The size of the image to train on. Larger images take longer
-									but have more detail.
-								</p>
-							</div>
-
-							{/* Learning Rate */}
-							<div>
-								<label
-									htmlFor={learningRateId}
-									className="block text-sm font-medium mb-2"
-								>
-									Initial Learning Rate: {learningRate.toFixed(4)}
-								</label>
-								<input
-									id={learningRateId}
-									type="range"
-									min="0.001"
-									max="0.05"
-									step="0.001"
-									value={learningRate}
-									onChange={(e) =>
-										handleLearningRateChange(Number(e.target.value))
-									}
-									disabled={trainingState.isTraining}
-									className="w-full"
-								/>
-								<div className="flex justify-between text-xs text-muted-foreground mt-1">
-									<span>0.001 (slow)</span>
-									<span>0.05 (fast)</span>
-								</div>
-								<p className="text-xs text-muted-foreground mt-2">
-									Controls how fast the network learns. Higher values learn
-									faster but may be unstable. Automatically decreases over time
-									for better results.
-								</p>
-							</div>
-
-							{/* Momentum */}
-							<div>
-								<label
-									htmlFor={momentumId}
-									className="block text-sm font-medium mb-2"
-								>
-									Momentum: {momentum.toFixed(2)}
-								</label>
-								<input
-									id={momentumId}
-									type="range"
-									min="0"
-									max="0.99"
-									step="0.01"
-									value={momentum}
-									onChange={(e) => handleMomentumChange(Number(e.target.value))}
-									className="w-full"
-								/>
-								<div className="flex justify-between text-xs text-muted-foreground mt-1">
-									<span>0 (none)</span>
-									<span>0.99 (high)</span>
-								</div>
-								<p className="text-xs text-muted-foreground mt-2">
-									Helps the network learn smoother and faster by remembering
-									previous adjustments. Higher values (like 0.9) work best for
-									most images.
-								</p>
-							</div>
-
-							{/* Batch Size */}
-							<div>
-								<label
-									htmlFor={batchSizeId}
-									className="block text-sm font-medium mb-2"
-								>
-									Batch Size: {batchSize}
-								</label>
-								<input
-									id={batchSizeId}
-									type="range"
-									min="1"
-									max="32"
-									step="1"
-									value={batchSize}
-									onChange={(e) =>
-										handleBatchSizeChange(Number(e.target.value))
-									}
-									className="w-full"
-								/>
-								<div className="flex justify-between text-xs text-muted-foreground mt-1">
-									<span>1 (SGD)</span>
-									<span>32 (mini-batch)</span>
-								</div>
-								<p className="text-xs text-muted-foreground mt-2">
-									Number of pixels to learn from at once. Smaller values (1-5)
-									give faster, more varied updates. Larger values give smoother,
-									more stable learning.
-								</p>
-							</div>
-
-							{/* Render Interval */}
-							<div>
-								<label
-									htmlFor={renderIntervalId}
-									className="block text-sm font-medium mb-2"
-								>
-									Render Interval: {renderInterval}ms
-								</label>
-								<input
-									id={renderIntervalId}
-									type="range"
-									min="50"
-									max="500"
-									step="50"
-									value={renderInterval}
-									onChange={(e) => setRenderInterval(Number(e.target.value))}
-									className="w-full"
-								/>
-								<div className="flex justify-between text-xs text-muted-foreground mt-1">
-									<span>50ms (smooth)</span>
-									<span>500ms (fast)</span>
-								</div>
-								<p className="text-xs text-muted-foreground mt-2">
-									How often to update the display. Lower values show smoother
-									progress but may slow down training. Higher values train
-									faster but update less frequently.
-								</p>
-							</div>
-						</div>
-					)}
-				</div>
 
 				{/* Info */}
 				<div className="mt-8 text-sm text-muted-foreground">
