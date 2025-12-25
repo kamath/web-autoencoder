@@ -1,19 +1,17 @@
-Imagine you're a painter painting a scene on a canvas. As a restriction though, you’re not allowed to look at the canvas while you paint. You instead have to look at the scene *for just one second*, turn around, then recreate the scene on your canvas from memory. 
+Imagine you're a painter with one restriction: you can't look at the canvas while you paint. You glance at a scene for one second, turn around, and recreate it from memory. Broad strokes first, capturing what matters most. Another glance, another second, more details emerge.
 
-As a result, you start with broad strokes capturing the important details, and as you turn around and look at the canvas more, you get a better sense of the scene and can adjust the painting accordingly.
+This process of distilling a grand scene into its core essence while preserving the most important details is called *dimensionality reduction* in Machine Learning. An *autoencoder*, visualized here, is one such form of dimensionality reduction typically used in complex data like images, text, and audio.
 
-This process of distilling a grand scene into its core essence is quite beautiful. In Machine Learning, this study is formalized as *dimensionality reduction*, i.e. the process of reducing the noise in complex data. An *autoencoder*, visualized here, is one such form of dimensionality reduction.
+Visualizing the process of perception for the first time was enthralling; juxtaposing it with human memory was even more so. 
 
-It’s captivating to visualize the process of perception, but especially as it relates to humans vs AI. 
+The same image from the past starts a reconstruction process in both this autoencoder and my brain. Both reconstructions are blurry in some details, but brilliantly vivid in others.
 
-With humans, as time goes on, the sharp details of the memory get eroded by its associated sentiments. The memory persists more as a collection of moments and feelings than a detailed and exact replay.
+As time goes on, memory is worn down by significance, leaving behind sentiment rather than detail.
 
-When I see an image from the past, both this autoencoder and my brain start a reconstruction process. A picture is repainted in my head and with the autoencoder, blurry in some details, yet brilliantly vivid in others.
+The AI shows my friends and me smiling, wine glasses in hand. My mind reconstructs the taste of the college-budget wine, the feeling of realizing we’re out of toilet paper at 2am, and the drunken thrill of stealthily grabbing heaps of TP from the nearby McDonald's bathrooms. 
 
-Unlike the AI though, my head isn’t computing an exact reconstruction of the image. 
+The AI reconstructs a picture of my 26th birthday party. My mind reconstructs the rush from the surprise and reconnecting with friends after years on opposite coasts.
 
-The AI reconstructs a picture of my friends and me drinking wine in an Airbnb. It won’t reconstruct the feeling of realizing we’re out of toilet paper at 2am and the drunken thrill of stealthily stealing heaps of TP from the nearby McDonalds. 
+The AI converges to an accurate reconstruction.
 
-It reconstructs a picture of my 26th birthday party, but not the rush from the surprise of seeing everyone there and reconnecting with friends after years on opposite coasts.
-
-Some memories are better that way — inexact, but vivid in the ways you reconstruct them.
+The memory spills outside any frame.
