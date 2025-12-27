@@ -12,6 +12,8 @@ interface NetworkConfig {
 
 interface NetworkSnapshot {
   iteration: number;
+  mse: number;
+  learningRate: number;
   weights: Float64Array[];
   biases: Float64Array[];
 }
@@ -247,9 +249,11 @@ class NeuralNetwork {
   }
 
   // Create a snapshot of current network state
-  createSnapshot(iteration: number): NetworkSnapshot {
+  createSnapshot(iteration: number, mse: number, learningRate: number): NetworkSnapshot {
     return {
       iteration,
+      mse,
+      learningRate,
       weights: this.weights.map((w) => new Float64Array(w)),
       biases: this.biases.map((b) => new Float64Array(b)),
     };
@@ -330,11 +334,14 @@ function trainingLoop() {
   if (captureSnapshotsEnabled && network && snapshotMilestones.length > 0) {
     const nextMilestone = snapshotMilestones[snapshots.length];
     if (nextMilestone !== undefined && iteration >= nextMilestone) {
-      snapshots.push(network.createSnapshot(iteration));
+      snapshots.push(network.createSnapshot(iteration, avgLoss, learningRate));
       self.postMessage({
         type: "snapshotCaptured",
         count: snapshots.length,
         total: snapshotMilestones.length,
+        iteration: iteration,
+        mse: avgLoss,
+        learningRate: learningRate,
       });
     }
   }
@@ -379,11 +386,18 @@ function trainingLoop() {
   }
 
   // Send progress update
+  const nextMilestoneIndex = snapshots.length;
+  const nextMilestoneIteration = snapshotMilestones[nextMilestoneIndex];
+  const iterationsUntilNext = nextMilestoneIteration && captureSnapshotsEnabled
+    ? nextMilestoneIteration - iteration
+    : null;
+
   self.postMessage({
     type: "progress",
     iteration,
     loss: avgLoss,
     learningRate: network.getLearningRate(),
+    iterationsUntilNext: iterationsUntilNext,
   });
 
   // Render if requested
@@ -565,11 +579,14 @@ self.onmessage = (e: MessageEvent) => {
       snapshots = [];
       // Capture initial state if network exists
       if (network) {
-        snapshots.push(network.createSnapshot(iteration));
+        snapshots.push(network.createSnapshot(iteration, 0, learningRate));
         self.postMessage({
           type: "snapshotCaptured",
           count: snapshots.length,
           total: snapshotMilestones.length,
+          iteration: iteration,
+          mse: 0,
+          learningRate: learningRate,
         });
       }
       break;
@@ -631,6 +648,8 @@ self.onmessage = (e: MessageEvent) => {
           height: imageHeight,
           snapshotIndex: data.snapshotIndex,
           iteration: snapshot.iteration,
+          mse: snapshot.mse,
+          learningRate: snapshot.learningRate,
         },
         { transfer: [buffer.buffer] },
       );

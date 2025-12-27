@@ -9,6 +9,12 @@ import {
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { calculateGifMemory } from "../lib/gif-utils";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface TrainingState {
   isTraining: boolean;
@@ -26,6 +32,21 @@ const MOMENT_IMAGES = [
 ];
 
 export function ImagePainter() {
+  // Conversion functions for logarithmic slider
+  function sliderToIterations(sliderValue: number): number {
+    const minLog = Math.log10(10_000);
+    const maxLog = Math.log10(1_000_000);
+    const logValue = minLog + (sliderValue / 100) * (maxLog - minLog);
+    return Math.round(Math.pow(10, logValue));
+  }
+
+  function iterationsToSlider(iterations: number): number {
+    const minLog = Math.log10(10_000);
+    const maxLog = Math.log10(1_000_000);
+    const logValue = Math.log10(iterations);
+    return Math.round(((logValue - minLog) / (maxLog - minLog)) * 100);
+  }
+
   const imageUploadId = useId();
   const imageSizeId = useId();
   const learningRateId = useId();
@@ -71,6 +92,9 @@ export function ImagePainter() {
   const [gifFrameCount, setGifFrameCount] = useState(50);
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
   const [maxIterations, setMaxIterations] = useState(100_000);
+  const [maxIterationsSlider, setMaxIterationsSlider] = useState(() =>
+    iterationsToSlider(100_000)
+  );
   const [snapshotMode, setSnapshotMode] = useState<"linear" | "logarithmic">("linear");
   const [isGeneratingGif, setIsGeneratingGif] = useState(false);
   const [gifProgress, setGifProgress] = useState({
@@ -84,6 +108,14 @@ export function ImagePainter() {
   const [snapshotFrames, setSnapshotFrames] = useState<string[]>([]);
   const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
 
+  // Snapshot metadata state
+  interface SnapshotMetadata {
+    iteration: number;
+    mse: number;
+    learningRate: number;
+  }
+  const [snapshotMetadata, setSnapshotMetadata] = useState<SnapshotMetadata[]>([]);
+
   // Generated GIF state
   const [generatedGifUrl, setGeneratedGifUrl] = useState<string | null>(null);
 
@@ -96,7 +128,6 @@ export function ImagePainter() {
   const workerRef = useRef<Worker | null>(null);
   const gifEncoderWorkerRef = useRef<Worker | null>(null);
   const outputCanvasRef = useRef<HTMLCanvasElement>(null);
-  const snapshotCanvasRef = useRef<HTMLCanvasElement>(null);
   const renderIntervalRef = useRef<number | null>(null);
   // Store the original image element so we can resize it
   const originalImageRef = useRef<HTMLImageElement | null>(null);
@@ -212,6 +243,7 @@ export function ImagePainter() {
     setCapturedSnapshots(0);
     setSnapshotFrames([]);
     setCurrentSnapshotIndex(0);
+    setSnapshotMetadata([]);
 
     workerRef.current?.postMessage({
       type: "disableSnapshotCapture",
@@ -353,6 +385,11 @@ export function ImagePainter() {
 
         case "snapshotCaptured":
           setCapturedSnapshots(data.count);
+          // Store snapshot metadata
+          setSnapshotMetadata(prev => [
+            ...prev,
+            { iteration: data.iteration, mse: data.mse, learningRate: data.learningRate }
+          ]);
           // Request a render of the latest snapshot for the carousel
           workerRef.current?.postMessage({
             type: "renderSnapshot",
@@ -583,6 +620,7 @@ export function ImagePainter() {
     setCapturedSnapshots(0);
     setSnapshotFrames([]);
     setCurrentSnapshotIndex(0);
+    setSnapshotMetadata([]);
 
     workerRef.current?.postMessage({
       type: "reset",
@@ -783,39 +821,71 @@ export function ImagePainter() {
           </div>
         </div>
 
-        {/* Snapshot Carousel */}
-        {snapshotFrames.length > 0 && (
+        {/* Combined Snapshots and GIF Section */}
+        {(snapshotFrames.length > 0 || generatedGifUrl) && (
           <div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
             <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-center">
-              Captured Snapshots
+              Neural Painting Journey
             </h2>
 
-            <div className="flex flex-col items-center">
-              {/* Snapshot Display */}
-              <div
-                className="bg-muted rounded-lg overflow-hidden mb-4"
-                style={{ maxWidth: imageSize * 2 }}
-              >
-                {snapshotFrames[currentSnapshotIndex] ? (
-                  <img
-                    src={snapshotFrames[currentSnapshotIndex]}
-                    alt={`Snapshot ${currentSnapshotIndex + 1}`}
-                    style={{
-                      width: "100%",
-                      height: "auto",
-                      imageRendering: "pixelated",
-                    }}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center p-8 text-muted-foreground">
-                    Loading snapshot...
-                  </div>
-                )}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: Snapshot Carousel */}
+              {snapshotFrames.length > 0 && (
+                <div>
+                  <h3 className="text-md font-medium mb-3 text-center">
+                    Captured Snapshots
+                  </h3>
 
-              {/* Carousel Navigation */}
-              <div className="flex items-center justify-center gap-4">
-                <button
+                  {/* Snapshot Display */}
+                  <div className="flex flex-col items-center">
+                    <div
+                      className="bg-muted rounded-lg overflow-hidden mb-4 w-full"
+                      style={{ maxWidth: imageSize * 2 }}
+                    >
+                      {snapshotFrames[currentSnapshotIndex] ? (
+                        <img
+                          src={snapshotFrames[currentSnapshotIndex]}
+                          alt={`Snapshot ${currentSnapshotIndex + 1}`}
+                          style={{
+                            width: "100%",
+                            height: "auto",
+                            imageRendering: "pixelated",
+                          }}
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center p-8 text-muted-foreground">
+                          Loading snapshot...
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Snapshot Metadata */}
+                    {snapshotMetadata[currentSnapshotIndex] && (
+                      <div className="grid grid-cols-3 gap-2 text-center mb-3 w-full max-w-sm">
+                        <div className="bg-muted rounded p-2">
+                          <div className="text-xs text-muted-foreground">Iteration</div>
+                          <div className="text-sm font-mono font-bold">
+                            {snapshotMetadata[currentSnapshotIndex].iteration.toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="bg-muted rounded p-2">
+                          <div className="text-xs text-muted-foreground">MSE</div>
+                          <div className="text-sm font-mono font-bold">
+                            {snapshotMetadata[currentSnapshotIndex].mse.toFixed(6)}
+                          </div>
+                        </div>
+                        <div className="bg-muted rounded p-2">
+                          <div className="text-xs text-muted-foreground">LR</div>
+                          <div className="text-sm font-mono font-bold">
+                            {snapshotMetadata[currentSnapshotIndex].learningRate.toFixed(6)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Carousel Navigation */}
+                    <div className="flex items-center justify-center gap-4">
+                      <button
                   type="button"
                   onClick={() =>
                     setCurrentSnapshotIndex((prev) => Math.max(0, prev - 1))
@@ -842,44 +912,47 @@ export function ImagePainter() {
                 >
                   Next →
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-        {/* Generated GIF Preview */}
-        {generatedGifUrl && (
-          <div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
-            <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-center">
-              Neural Painting Journey
-            </h2>
+              {/* Right: Generated GIF */}
+              {generatedGifUrl && (
+                <div>
+                  <h3 className="text-md font-medium mb-3 text-center">
+                    Animated Journey
+                  </h3>
 
-            <div className="flex flex-col items-center">
-              {/* GIF Display */}
-              <div
-                className="bg-muted rounded-lg overflow-hidden mb-4"
-                style={{ maxWidth: imageSize * 2 }}
-              >
-                <img
-                  src={generatedGifUrl}
-                  alt="Neural painting journey GIF"
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    imageRendering: "pixelated",
-                  }}
-                />
-              </div>
+                  <div className="flex flex-col items-center">
+                    {/* GIF Display */}
+                    <div
+                      className="bg-muted rounded-lg overflow-hidden mb-4 w-full"
+                      style={{ maxWidth: imageSize * 2 }}
+                    >
+                      <img
+                        src={generatedGifUrl}
+                        alt="Neural painting journey GIF"
+                        style={{
+                          width: "100%",
+                          height: "auto",
+                          imageRendering: "pixelated",
+                        }}
+                      />
+                    </div>
 
-              {/* Download Button */}
-              <button
-                type="button"
-                onClick={handleDownloadGif}
+                    {/* Download Button */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadGif}
                 className="px-6 py-3 bg-primary text-primary-foreground rounded-md font-medium text-sm
 									hover:opacity-90 transition-opacity"
-              >
-                Download GIF
-              </button>
+                    >
+                      Download GIF
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1221,12 +1294,14 @@ export function ImagePainter() {
                       <input
                         id={maxIterationsId}
                         type="range"
-                        min="10000"
-                        max="500000"
-                        step="10000"
-                        value={maxIterations}
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={maxIterationsSlider}
                         onChange={(e) => {
-                          const newMax = Number(e.target.value);
+                          const sliderVal = Number(e.target.value);
+                          setMaxIterationsSlider(sliderVal);
+                          const newMax = sliderToIterations(sliderVal);
                           setMaxIterations(newMax);
                           workerRef.current?.postMessage({
                             type: "setMaxIterations",
@@ -1238,12 +1313,13 @@ export function ImagePainter() {
                         className="w-full"
                       />
                       <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>10K (fast)</span>
-                        <span>500K (detailed)</span>
+                        <span>10K</span>
+                        <span>100K</span>
+                        <span>1M</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Training will automatically stop and generate GIF when
-                        this limit is reached.
+                        this limit is reached. Logarithmic scale for better control.
                       </p>
                     </div>
 
@@ -1329,6 +1405,73 @@ export function ImagePainter() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Training Metrics Charts */}
+        {snapshotMetadata.length > 0 && (
+          <div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
+            <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">
+              Training Metrics Evolution
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* MSE Chart */}
+              <div>
+                <h3 className="text-sm font-medium mb-2">Loss (MSE)</h3>
+                <ChartContainer
+                  config={{
+                    mse: { label: "MSE", color: "hsl(var(--chart-1))" },
+                  }}
+                  className="h-[200px]"
+                >
+                  <AreaChart data={snapshotMetadata}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="iteration"
+                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area
+                      type="monotone"
+                      dataKey="mse"
+                      stroke="hsl(var(--chart-1))"
+                      fill="hsl(var(--chart-1))"
+                      fillOpacity={0.2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+
+              {/* Learning Rate Chart */}
+              <div>
+                <h3 className="text-sm font-medium mb-2">Learning Rate</h3>
+                <ChartContainer
+                  config={{
+                    learningRate: { label: "Learning Rate", color: "hsl(var(--chart-2))" },
+                  }}
+                  className="h-[200px]"
+                >
+                  <AreaChart data={snapshotMetadata}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="iteration"
+                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+                    <YAxis />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area
+                      type="monotone"
+                      dataKey="learningRate"
+                      stroke="hsl(var(--chart-2))"
+                      fill="hsl(var(--chart-2))"
+                      fillOpacity={0.2}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </div>
+            </div>
           </div>
         )}
 
