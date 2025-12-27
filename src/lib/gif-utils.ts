@@ -26,11 +26,20 @@ export function calculateGifMemory(
 export function calculateSnapshotMilestones(
   maxIterations: number,
   frameCount: number,
+  mode: "linear" | "logarithmic" = "logarithmic",
 ): number[] {
   const milestones = [0]
 
   if (frameCount <= 2) {
     milestones.push(maxIterations)
+    return milestones
+  }
+
+  if (mode === "linear") {
+    const step = maxIterations / (frameCount - 1)
+    for (let i = 1; i < frameCount; i++) {
+      milestones.push(Math.floor(i * step))
+    }
     return milestones
   }
 
