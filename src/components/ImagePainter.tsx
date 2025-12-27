@@ -25,8 +25,6 @@ const MOMENT_IMAGES = [
   "/moments/france.JPG",
 ];
 
-const MAX_ITERATIONS = 100_000;
-
 export function ImagePainter() {
   const imageUploadId = useId();
   const imageSizeId = useId();
@@ -34,6 +32,8 @@ export function ImagePainter() {
   const momentumId = useId();
   const batchSizeId = useId();
   const renderIntervalId = useId();
+  const maxIterationsId = useId();
+  const snapshotModeId = useId();
 
   const [imageLoaded, setImageLoaded] = useState(false);
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
@@ -70,6 +70,8 @@ export function ImagePainter() {
   const autoCaptureId = useId();
   const [gifFrameCount, setGifFrameCount] = useState(50);
   const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
+  const [maxIterations, setMaxIterations] = useState(100_000);
+  const [snapshotMode, setSnapshotMode] = useState<"linear" | "logarithmic">("linear");
   const [isGeneratingGif, setIsGeneratingGif] = useState(false);
   const [gifProgress, setGifProgress] = useState({
     stage: "",
@@ -162,7 +164,9 @@ export function ImagePainter() {
                         workerRef.current?.postMessage({
                           type: "enableSnapshotCapture",
                           frameCount: gifFrameCount,
-                          maxIterations: MAX_ITERATIONS,
+                          maxIterations: maxIterations,
+                          mode: snapshotMode,
+                          autoGenerateGif: true,
                         });
                       }
                       workerRef.current?.postMessage({ type: "start" });
@@ -185,6 +189,8 @@ export function ImagePainter() {
       batchSize,
       autoCaptureEnabled,
       gifFrameCount,
+      maxIterations,
+      snapshotMode,
     ],
   );
 
@@ -201,6 +207,17 @@ export function ImagePainter() {
       .catch((err) => console.error("Failed to load blog post:", err));
   }, []);
 
+  // Reset snapshots only (preserve generated GIF)
+  const resetSnapshotsOnly = useCallback(() => {
+    setCapturedSnapshots(0);
+    setSnapshotFrames([]);
+    setCurrentSnapshotIndex(0);
+
+    workerRef.current?.postMessage({
+      type: "disableSnapshotCapture",
+    });
+  }, []);
+
   // Navigate to next/previous image
   const goToNextImage = useCallback(() => {
     // Stop training if running
@@ -208,10 +225,14 @@ export function ImagePainter() {
       setTrainingState((prev) => ({ ...prev, isTraining: false }));
       workerRef.current?.postMessage({ type: "stop" });
     }
+
+    // Reset snapshots but keep GIF preview
+    resetSnapshotsOnly();
+
     const nextIndex = (currentImageIndex + 1) % MOMENT_IMAGES.length;
     setCurrentImageIndex(nextIndex);
     loadImageFromUrl(MOMENT_IMAGES[nextIndex], true);
-  }, [currentImageIndex, loadImageFromUrl, trainingState.isTraining]);
+  }, [currentImageIndex, loadImageFromUrl, trainingState.isTraining, resetSnapshotsOnly]);
 
   const goToPrevImage = useCallback(() => {
     // Stop training if running
@@ -219,11 +240,15 @@ export function ImagePainter() {
       setTrainingState((prev) => ({ ...prev, isTraining: false }));
       workerRef.current?.postMessage({ type: "stop" });
     }
+
+    // Reset snapshots but keep GIF preview
+    resetSnapshotsOnly();
+
     const prevIndex =
       (currentImageIndex - 1 + MOMENT_IMAGES.length) % MOMENT_IMAGES.length;
     setCurrentImageIndex(prevIndex);
     loadImageFromUrl(MOMENT_IMAGES[prevIndex], true);
-  }, [currentImageIndex, loadImageFromUrl, trainingState.isTraining]);
+  }, [currentImageIndex, loadImageFromUrl, trainingState.isTraining, resetSnapshotsOnly]);
 
   // Process image at given size and initialize worker
   const processImage = useCallback(
@@ -377,6 +402,32 @@ export function ImagePainter() {
           break;
         }
 
+        case "trainingComplete":
+          setTrainingState((prev) => ({ ...prev, isTraining: false }));
+
+          // Auto-trigger GIF generation if enabled and snapshots were captured
+          if (data.autoGenerate && data.snapshotCount > 0 && imageDataRef.current) {
+            // Cleanup previous GIF URL
+            if (generatedGifUrl) {
+              URL.revokeObjectURL(generatedGifUrl);
+              setGeneratedGifUrl(null);
+            }
+
+            setIsGeneratingGif(true);
+            setGifProgress({
+              stage: "Generating frames",
+              current: 0,
+              total: gifFrameCount,
+            });
+
+            workerRef.current?.postMessage({
+              type: "generateGif",
+              originalImageData: imageDataRef.current,
+              morphFrames: 3,
+            });
+          }
+          break;
+
         case "gifError":
           console.error("GIF generation error:", data.message);
           setIsGeneratingGif(false);
@@ -498,7 +549,9 @@ export function ImagePainter() {
       workerRef.current?.postMessage({
         type: "enableSnapshotCapture",
         frameCount: gifFrameCount,
-        maxIterations: MAX_ITERATIONS,
+        maxIterations: maxIterations,
+        mode: snapshotMode,
+        autoGenerateGif: true,
       });
     }
 
@@ -516,6 +569,8 @@ export function ImagePainter() {
     trainingState.isTraining,
     autoCaptureEnabled,
     gifFrameCount,
+    maxIterations,
+    snapshotMode,
   ]);
 
   // Reset training
@@ -1153,6 +1208,98 @@ export function ImagePainter() {
                           ⚠️ Large memory usage
                         </div>
                       )}
+                    </div>
+
+                    {/* Max Iterations */}
+                    <div>
+                      <label
+                        htmlFor={maxIterationsId}
+                        className="block text-sm font-medium mb-2"
+                      >
+                        Max Iterations: {maxIterations.toLocaleString()}
+                      </label>
+                      <input
+                        id={maxIterationsId}
+                        type="range"
+                        min="10000"
+                        max="500000"
+                        step="10000"
+                        value={maxIterations}
+                        onChange={(e) => {
+                          const newMax = Number(e.target.value);
+                          setMaxIterations(newMax);
+                          workerRef.current?.postMessage({
+                            type: "setMaxIterations",
+                            maxIterations: newMax,
+                            mode: snapshotMode,
+                          });
+                        }}
+                        disabled={trainingState.isTraining}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                        <span>10K (fast)</span>
+                        <span>500K (detailed)</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Training will automatically stop and generate GIF when
+                        this limit is reached.
+                      </p>
+                    </div>
+
+                    {/* Snapshot Distribution Mode */}
+                    <div>
+                      <label
+                        htmlFor={snapshotModeId}
+                        className="block text-sm font-medium mb-2"
+                      >
+                        Snapshot Distribution
+                      </label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="snapshotMode"
+                            value="linear"
+                            checked={snapshotMode === "linear"}
+                            onChange={() => {
+                              setSnapshotMode("linear");
+                              workerRef.current?.postMessage({
+                                type: "setMaxIterations",
+                                maxIterations: maxIterations,
+                                mode: "linear",
+                              });
+                            }}
+                            disabled={trainingState.isTraining}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm">Linear</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="snapshotMode"
+                            value="logarithmic"
+                            checked={snapshotMode === "logarithmic"}
+                            onChange={() => {
+                              setSnapshotMode("logarithmic");
+                              workerRef.current?.postMessage({
+                                type: "setMaxIterations",
+                                maxIterations: maxIterations,
+                                mode: "logarithmic",
+                              });
+                            }}
+                            disabled={trainingState.isTraining}
+                            className="cursor-pointer"
+                          />
+                          <span className="text-sm">Logarithmic</span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Linear captures evenly spaced snapshots. Logarithmic
+                        captures more snapshots early in training when changes
+                        are most dramatic.
+                      </p>
                     </div>
                   </div>
 

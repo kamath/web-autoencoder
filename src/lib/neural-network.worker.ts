@@ -285,6 +285,8 @@ let snapshots: NetworkSnapshot[] = [];
 let captureSnapshotsEnabled = false;
 let snapshotMilestones: number[] = [];
 let gifFrameCount = 50;
+let maxIterations = 100_000;
+let autoGenerateGif = false;
 
 function trainBatch(): number {
   if (!network || !imageData) return 0;
@@ -335,6 +337,21 @@ function trainingLoop() {
         total: snapshotMilestones.length,
       });
     }
+  }
+
+  // Check if we've reached max iterations
+  if (autoGenerateGif && iteration >= maxIterations) {
+    isTraining = false;
+
+    self.postMessage({
+      type: "trainingComplete",
+      iteration,
+      finalLoss: avgLoss,
+      autoGenerate: autoGenerateGif,
+      snapshotCount: snapshots.length,
+    });
+
+    return; // Exit training loop
   }
 
   // Track loss history and adapt learning rate
@@ -538,10 +555,12 @@ self.onmessage = (e: MessageEvent) => {
     case "enableSnapshotCapture": {
       captureSnapshotsEnabled = true;
       gifFrameCount = data.frameCount || 50;
+      maxIterations = data.maxIterations || 100_000;
+      autoGenerateGif = data.autoGenerateGif ?? true;
       snapshotMilestones = calculateSnapshotMilestones(
-        data.maxIterations || 1_000_000,
+        maxIterations,
         gifFrameCount,
-        "linear",
+        data.mode || "linear",
       );
       snapshots = [];
       // Capture initial state if network exists
@@ -559,6 +578,18 @@ self.onmessage = (e: MessageEvent) => {
     case "disableSnapshotCapture":
       captureSnapshotsEnabled = false;
       snapshots = [];
+      break;
+
+    case "setMaxIterations":
+      maxIterations = data.maxIterations;
+      // Recalculate milestones if snapshot capture is enabled
+      if (captureSnapshotsEnabled) {
+        snapshotMilestones = calculateSnapshotMilestones(
+          maxIterations,
+          gifFrameCount,
+          data.mode || "linear",
+        );
+      }
       break;
 
     case "generateGif": {
