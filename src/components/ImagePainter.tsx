@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { calculateGifMemory } from "../lib/gif-utils";
 
 interface TrainingState {
 	isTraining: boolean;
@@ -55,11 +56,36 @@ export function ImagePainter() {
 		return 128;
 	});
 
+	// GIF generation state
+	const gifFrameCountId = useId();
+	const autoCaptureId = useId();
+	const [gifFrameCount, setGifFrameCount] = useState(50);
+	const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
+	const [isGeneratingGif, setIsGeneratingGif] = useState(false);
+	const [gifProgress, setGifProgress] = useState({ stage: "", current: 0, total: 0 });
+	const [capturedSnapshots, setCapturedSnapshots] = useState(0);
+
+	// Snapshot carousel state
+	const [snapshotFrames, setSnapshotFrames] = useState<string[]>([]);
+	const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
+
+	// Generated GIF state
+	const [generatedGifUrl, setGeneratedGifUrl] = useState<string | null>(null);
+
+	// Calculate memory estimate for GIF
+	const memoryEstimate = useMemo(
+		() => calculateGifMemory(imageSize, imageSize, gifFrameCount),
+		[imageSize, gifFrameCount],
+	);
+
 	const workerRef = useRef<Worker | null>(null);
+	const gifEncoderWorkerRef = useRef<Worker | null>(null);
 	const outputCanvasRef = useRef<HTMLCanvasElement>(null);
+	const snapshotCanvasRef = useRef<HTMLCanvasElement>(null);
 	const renderIntervalRef = useRef<number | null>(null);
 	// Store the original image element so we can resize it
 	const originalImageRef = useRef<HTMLImageElement | null>(null);
+	const imageDataRef = useRef<Uint8ClampedArray | null>(null);
 
 	// Load image from URL
 	const loadImageFromUrl = useCallback(
@@ -86,6 +112,9 @@ export function ImagePainter() {
 
 								ctx.drawImage(img, 0, 0, imageSize, imageSize);
 								const data = ctx.getImageData(0, 0, imageSize, imageSize);
+
+								// Store image data for GIF generation
+								imageDataRef.current = new Uint8ClampedArray(data.data);
 
 								setOriginalImageUrl(canvas.toDataURL());
 								setImageLoaded(true);
@@ -114,6 +143,15 @@ export function ImagePainter() {
 												...prev,
 												isTraining: true,
 											}));
+											// Enable snapshot capture if auto-capture is enabled
+											if (autoCaptureEnabled) {
+												setCapturedSnapshots(0);
+												workerRef.current?.postMessage({
+													type: "enableSnapshotCapture",
+													frameCount: gifFrameCount,
+													maxIterations: 100000,
+												});
+											}
 											workerRef.current?.postMessage({ type: "start" });
 											workerRef.current?.postMessage({ type: "render" });
 										}
@@ -127,7 +165,7 @@ export function ImagePainter() {
 			};
 			img.src = url;
 		},
-		[imageSize, learningRate, momentum, batchSize],
+		[imageSize, learningRate, momentum, batchSize, autoCaptureEnabled, gifFrameCount],
 	);
 
 	// Load default image on mount
@@ -182,6 +220,9 @@ export function ImagePainter() {
 			// Draw scaled image
 			ctx.drawImage(img, 0, 0, size, size);
 			const data = ctx.getImageData(0, 0, size, size);
+
+			// Store image data for GIF generation
+			imageDataRef.current = new Uint8ClampedArray(data.data);
 
 			setOriginalImageUrl(canvas.toDataURL());
 			setImageLoaded(true);
@@ -264,11 +305,107 @@ export function ImagePainter() {
 						loss: 0,
 					}));
 					break;
+
+				case "snapshotCaptured":
+					setCapturedSnapshots(data.count);
+					// Request a render of the latest snapshot for the carousel
+					workerRef.current?.postMessage({ type: "renderSnapshot", snapshotIndex: data.count - 1 });
+					break;
+
+				case "snapshotRendered": {
+					// Convert buffer to data URL for carousel
+					const canvas = document.createElement("canvas");
+					canvas.width = data.width;
+					canvas.height = data.height;
+					const ctx = canvas.getContext("2d");
+					if (ctx) {
+						const imageData = new ImageData(
+							new Uint8ClampedArray(data.buffer),
+							data.width,
+							data.height,
+						);
+						ctx.putImageData(imageData, 0, 0);
+						const dataUrl = canvas.toDataURL();
+						setSnapshotFrames((prev) => {
+							const updated = [...prev];
+							updated[data.snapshotIndex] = dataUrl;
+							return updated;
+						});
+						setCurrentSnapshotIndex(data.snapshotIndex);
+					}
+					break;
+				}
+
+				case "gifFrames": {
+					setGifProgress({
+						stage: "Encoding GIF",
+						current: 0,
+						total: data.frames.length,
+					});
+
+					// Send to GIF encoder worker
+					gifEncoderWorkerRef.current?.postMessage({
+						type: "encode",
+						frames: data.frames,
+						width: data.width,
+						height: data.height,
+						fps: 10,
+					});
+					break;
+				}
+
+				case "gifError":
+					console.error("GIF generation error:", data.message);
+					setIsGeneratingGif(false);
+					alert(`GIF generation failed: ${data.message}`);
+					break;
 			}
 		};
 
 		return () => {
 			workerRef.current?.terminate();
+		};
+	}, []);
+
+	// Initialize GIF encoder worker
+	useEffect(() => {
+		gifEncoderWorkerRef.current = new Worker(
+			new URL("../lib/gif-encoder.worker.ts", import.meta.url),
+			{ type: "module" },
+		);
+
+		gifEncoderWorkerRef.current.onmessage = (e) => {
+			const { type, ...data } = e.data;
+
+			switch (type) {
+				case "progress":
+					setGifProgress({
+						stage: "Encoding GIF",
+						current: data.current,
+						total: data.total,
+					});
+					break;
+
+				case "complete": {
+					// Store the GIF URL for inline preview
+					const url = URL.createObjectURL(data.blob);
+					setGeneratedGifUrl(url);
+
+					setIsGeneratingGif(false);
+					setGifProgress({ stage: "", current: 0, total: 0 });
+					break;
+				}
+
+				case "error":
+					console.error("GIF encoding error:", data.message);
+					setIsGeneratingGif(false);
+					alert(`GIF encoding failed: ${data.message}`);
+					break;
+			}
+		};
+
+		return () => {
+			gifEncoderWorkerRef.current?.terminate();
 		};
 	}, []);
 
@@ -332,6 +469,16 @@ export function ImagePainter() {
 			isTraining: newIsTraining,
 		}));
 
+		// Enable snapshot capture when starting training
+		if (newIsTraining && autoCaptureEnabled) {
+			setCapturedSnapshots(0);
+			workerRef.current?.postMessage({
+				type: "enableSnapshotCapture",
+				frameCount: gifFrameCount,
+				maxIterations: 100000,
+			});
+		}
+
 		workerRef.current?.postMessage({
 			type: newIsTraining ? "start" : "stop",
 		});
@@ -340,7 +487,7 @@ export function ImagePainter() {
 		if (newIsTraining) {
 			workerRef.current?.postMessage({ type: "render" });
 		}
-	}, [imageLoaded, workerReady, trainingState.isTraining]);
+	}, [imageLoaded, workerReady, trainingState.isTraining, autoCaptureEnabled, gifFrameCount]);
 
 	// Reset training
 	const resetTraining = useCallback(() => {
@@ -348,6 +495,10 @@ export function ImagePainter() {
 			...prev,
 			isTraining: false,
 		}));
+
+		setCapturedSnapshots(0);
+		setSnapshotFrames([]);
+		setCurrentSnapshotIndex(0);
 
 		workerRef.current?.postMessage({
 			type: "reset",
@@ -364,6 +515,45 @@ export function ImagePainter() {
 			}
 		}
 	}, [learningRate, momentum, imageSize]);
+
+	// Generate GIF
+	const handleGenerateGif = useCallback(() => {
+		if (!workerRef.current || !imageDataRef.current) return;
+
+		// Cleanup previous GIF URL
+		if (generatedGifUrl) {
+			URL.revokeObjectURL(generatedGifUrl);
+			setGeneratedGifUrl(null);
+		}
+
+		setIsGeneratingGif(true);
+		setGifProgress({ stage: "Generating frames", current: 0, total: gifFrameCount });
+
+		workerRef.current.postMessage({
+			type: "generateGif",
+			originalImageData: imageDataRef.current,
+			morphFrames: 3,
+		});
+	}, [gifFrameCount, generatedGifUrl]);
+
+	// Download GIF
+	const handleDownloadGif = useCallback(() => {
+		if (!generatedGifUrl) return;
+
+		const a = document.createElement("a");
+		a.href = generatedGifUrl;
+		a.download = `neural-painting-journey-${Date.now()}.gif`;
+		a.click();
+	}, [generatedGifUrl]);
+
+	// Cleanup blob URL on unmount
+	useEffect(() => {
+		return () => {
+			if (generatedGifUrl) {
+				URL.revokeObjectURL(generatedGifUrl);
+			}
+		};
+	}, [generatedGifUrl]);
 
 	// Update learning rate
 	const handleLearningRateChange = useCallback((value: number) => {
@@ -505,6 +695,95 @@ export function ImagePainter() {
 					</div>
 				</div>
 
+				{/* Snapshot Carousel */}
+				{snapshotFrames.length > 0 && (
+					<div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
+						<h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-center">
+							Captured Snapshots
+						</h2>
+
+						<div className="flex flex-col items-center">
+							{/* Snapshot Display */}
+							<div className="bg-muted rounded-lg overflow-hidden mb-4" style={{ maxWidth: imageSize * 2 }}>
+								{snapshotFrames[currentSnapshotIndex] ? (
+									<img
+										src={snapshotFrames[currentSnapshotIndex]}
+										alt={`Snapshot ${currentSnapshotIndex + 1}`}
+										style={{
+											width: "100%",
+											height: "auto",
+											imageRendering: "pixelated",
+										}}
+									/>
+								) : (
+									<div className="flex items-center justify-center p-8 text-muted-foreground">
+										Loading snapshot...
+									</div>
+								)}
+							</div>
+
+							{/* Carousel Navigation */}
+							<div className="flex items-center justify-center gap-4">
+								<button
+									type="button"
+									onClick={() => setCurrentSnapshotIndex((prev) => Math.max(0, prev - 1))}
+									disabled={currentSnapshotIndex === 0}
+									className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm
+										disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+								>
+									← Prev
+								</button>
+								<span className="text-sm text-muted-foreground min-w-[120px] text-center">
+									Snapshot {currentSnapshotIndex + 1} / {snapshotFrames.length}
+								</span>
+								<button
+									type="button"
+									onClick={() => setCurrentSnapshotIndex((prev) => Math.min(snapshotFrames.length - 1, prev + 1))}
+									disabled={currentSnapshotIndex === snapshotFrames.length - 1}
+									className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm
+										disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+								>
+									Next →
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Generated GIF Preview */}
+				{generatedGifUrl && (
+					<div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
+						<h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 text-center">
+							Neural Painting Journey
+						</h2>
+
+						<div className="flex flex-col items-center">
+							{/* GIF Display */}
+							<div className="bg-muted rounded-lg overflow-hidden mb-4" style={{ maxWidth: imageSize * 2 }}>
+								<img
+									src={generatedGifUrl}
+									alt="Neural painting journey GIF"
+									style={{
+										width: "100%",
+										height: "auto",
+										imageRendering: "pixelated",
+									}}
+								/>
+							</div>
+
+							{/* Download Button */}
+							<button
+								type="button"
+								onClick={handleDownloadGif}
+								className="px-6 py-3 bg-primary text-primary-foreground rounded-md font-medium text-sm
+									hover:opacity-90 transition-opacity"
+							>
+								Download GIF
+							</button>
+						</div>
+					</div>
+				)}
+
 				{/* Training Stats */}
 				{imageLoaded && (
 					<div className="bg-card border border-border rounded-lg p-4 md:p-6 my-8">
@@ -512,7 +791,7 @@ export function ImagePainter() {
 							Training Progress
 						</h2>
 						{/* Action Buttons */}
-						<div className="flex gap-3 md:gap-4 mt-6">
+						<div className="flex flex-wrap gap-3 md:gap-4 mt-6">
 							<button
 								type="button"
 								onClick={toggleTraining}
@@ -539,7 +818,39 @@ export function ImagePainter() {
 							>
 								Configure
 							</button>
+							<button
+								type="button"
+								onClick={handleGenerateGif}
+								disabled={!imageLoaded || capturedSnapshots === 0 || isGeneratingGif}
+								className="px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium
+                disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-sm md:text-base"
+							>
+								{isGeneratingGif ? "Generating..." : "Generate GIF Journey"}
+							</button>
 						</div>
+
+						{/* GIF Generation Progress */}
+						{isGeneratingGif && (
+							<div className="bg-muted border border-border rounded-lg p-4 mt-4">
+								<div className="flex items-center gap-3">
+									<div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+									<div className="flex-1">
+										<div className="font-medium">{gifProgress.stage}</div>
+										<div className="text-sm text-muted-foreground">
+											{gifProgress.current} / {gifProgress.total}
+										</div>
+									</div>
+								</div>
+								<div className="w-full bg-background rounded-full h-2 mt-3">
+									<div
+										className="bg-primary h-2 rounded-full transition-all duration-300"
+										style={{
+											width: `${gifProgress.total > 0 ? (gifProgress.current / gifProgress.total) * 100 : 0}%`
+										}}
+									/>
+								</div>
+							</div>
+						)}
 
 						{/* Configuration Options */}
 						{parametersExpanded && (
@@ -742,6 +1053,72 @@ export function ImagePainter() {
 										progress but may slow down training. Higher values train
 										faster but update less frequently.
 									</p>
+								</div>
+
+								{/* GIF Generation Section */}
+								<div className="md:col-span-2 border-t border-border pt-6 mt-6">
+									<h3 className="text-md font-semibold mb-4">GIF Journey Generation</h3>
+
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+										{/* Frame Count */}
+										<div>
+											<label
+												htmlFor={gifFrameCountId}
+												className="block text-sm font-medium mb-2"
+											>
+												Frame Count: {gifFrameCount}
+											</label>
+											<input
+												id={gifFrameCountId}
+												type="range"
+												min="10"
+												max="100"
+												step="5"
+												value={gifFrameCount}
+												onChange={(e) => setGifFrameCount(Number(e.target.value))}
+												disabled={trainingState.isTraining}
+												className="w-full"
+											/>
+											<p className="text-xs text-muted-foreground mt-2">
+												Number of snapshots to capture. More frames = smoother journey.
+											</p>
+										</div>
+
+										{/* Memory Estimate */}
+										<div className="bg-muted rounded p-3">
+											<div className="text-sm font-medium mb-2">Memory Estimate</div>
+											<div className="text-xs text-muted-foreground">
+												{memoryEstimate.totalFrames} frames × {imageSize}×{imageSize}px
+											</div>
+											<div className="text-lg font-mono font-bold text-primary mt-1">
+												{memoryEstimate.megabytes.toFixed(2)} MB
+											</div>
+											{memoryEstimate.megabytes > 50 && (
+												<div className="text-yellow-600 text-xs mt-2">
+													⚠️ Large memory usage
+												</div>
+											)}
+										</div>
+									</div>
+
+									{/* Auto-capture Toggle */}
+									<div className="flex items-center gap-2 mt-4">
+										<input
+											type="checkbox"
+											id={autoCaptureId}
+											checked={autoCaptureEnabled}
+											onChange={(e) => setAutoCaptureEnabled(e.target.checked)}
+											className="cursor-pointer"
+										/>
+										<label htmlFor={autoCaptureId} className="text-sm cursor-pointer">
+											Auto-capture snapshots during training
+											{autoCaptureEnabled && trainingState.isTraining && capturedSnapshots > 0 && (
+												<span className="ml-2 text-muted-foreground">
+													({capturedSnapshots}/{gifFrameCount} captured)
+												</span>
+											)}
+										</label>
+									</div>
 								</div>
 							</div>
 						)}
