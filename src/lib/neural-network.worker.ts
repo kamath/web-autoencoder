@@ -424,29 +424,8 @@ function calculateSnapshotMilestones(
 	return milestones;
 }
 
-// Morph between two frames using linear interpolation
-function morphFrames(
-	frame1: Uint8ClampedArray,
-	frame2: Uint8ClampedArray,
-	t: number,
-): Uint8ClampedArray {
-	const result = new Uint8ClampedArray(frame1.length);
-	const invT = 1 - t;
-
-	for (let i = 0; i < frame1.length; i++) {
-		result[i] = Math.round(frame1[i] * invT + frame2[i] * t);
-	}
-
-	return result;
-}
-
 // Generate all frames for the GIF journey
-function generateGifFrames(
-	originalImageData: Uint8ClampedArray,
-	width: number,
-	height: number,
-	morphFrameCount: number,
-) {
+function generateGifFrames(width: number, height: number) {
 	if (!network) {
 		self.postMessage({ type: "gifError", message: "Network not initialized" });
 		return;
@@ -454,41 +433,20 @@ function generateGifFrames(
 
 	const frames: Uint8ClampedArray[] = [];
 
-	// 1. Original image
-	frames.push(new Uint8ClampedArray(originalImageData));
-
-	// 2. Render iteration 0 (before training)
+	// Check if we have snapshots
 	if (snapshots.length === 0) {
 		self.postMessage({ type: "gifError", message: "No snapshots captured" });
 		return;
 	}
 
-	network.restoreSnapshot(snapshots[0]);
-	const iter0Buffer = network.renderToBuffer(width, height);
-
-	// 3. Morph from original to iter0
-	for (let i = 1; i <= morphFrameCount; i++) {
-		const t = i / morphFrameCount;
-		frames.push(morphFrames(originalImageData, iter0Buffer, t));
-	}
-
-	// 4. Progressive iterations (forward)
-	for (const snapshot of snapshots) {
+	// 1. Progressive iterations (forward)
+	for (const snapshot of [...snapshots].reverse()) {
 		network.restoreSnapshot(snapshot);
 		const buffer = network.renderToBuffer(width, height);
 		frames.push(buffer);
 	}
 
-	// 5. Final frame
-	const finalBuffer = frames[frames.length - 1];
-
-	// 6. Morph back to original
-	for (let i = 1; i <= morphFrameCount; i++) {
-		const t = i / morphFrameCount;
-		frames.push(morphFrames(finalBuffer, originalImageData, t));
-	}
-
-	// 7. Reverse sequence (skip endpoints to avoid duplication)
+	// 2. Reverse sequence (skip endpoints to avoid duplication)
 	for (let i = frames.length - 2; i > 0; i--) {
 		frames.push(new Uint8ClampedArray(frames[i]));
 	}
@@ -604,12 +562,7 @@ self.onmessage = (e: MessageEvent) => {
 				break;
 			}
 
-			generateGifFrames(
-				data.originalImageData || imageData,
-				imageWidth,
-				imageHeight,
-				data.morphFrames || 3,
-			);
+			generateGifFrames(imageWidth, imageHeight);
 
 			// Resume training if it was active
 			if (wasTraining) {

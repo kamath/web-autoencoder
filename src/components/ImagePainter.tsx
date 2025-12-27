@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { calculateGifMemory } from "../lib/gif-utils";
@@ -17,6 +24,8 @@ const MOMENT_IMAGES = [
 	"/moments/surprise.JPG",
 	"/moments/france.JPG",
 ];
+
+const MAX_ITERATIONS = 1_000_000;
 
 export function ImagePainter() {
 	const imageUploadId = useId();
@@ -62,7 +71,11 @@ export function ImagePainter() {
 	const [gifFrameCount, setGifFrameCount] = useState(50);
 	const [autoCaptureEnabled, setAutoCaptureEnabled] = useState(true);
 	const [isGeneratingGif, setIsGeneratingGif] = useState(false);
-	const [gifProgress, setGifProgress] = useState({ stage: "", current: 0, total: 0 });
+	const [gifProgress, setGifProgress] = useState({
+		stage: "",
+		current: 0,
+		total: 0,
+	});
 	const [capturedSnapshots, setCapturedSnapshots] = useState(0);
 
 	// Snapshot carousel state
@@ -149,7 +162,7 @@ export function ImagePainter() {
 												workerRef.current?.postMessage({
 													type: "enableSnapshotCapture",
 													frameCount: gifFrameCount,
-													maxIterations: 100000,
+													maxIterations: MAX_ITERATIONS,
 												});
 											}
 											workerRef.current?.postMessage({ type: "start" });
@@ -165,7 +178,14 @@ export function ImagePainter() {
 			};
 			img.src = url;
 		},
-		[imageSize, learningRate, momentum, batchSize, autoCaptureEnabled, gifFrameCount],
+		[
+			imageSize,
+			learningRate,
+			momentum,
+			batchSize,
+			autoCaptureEnabled,
+			gifFrameCount,
+		],
 	);
 
 	// Load default image on mount
@@ -309,7 +329,10 @@ export function ImagePainter() {
 				case "snapshotCaptured":
 					setCapturedSnapshots(data.count);
 					// Request a render of the latest snapshot for the carousel
-					workerRef.current?.postMessage({ type: "renderSnapshot", snapshotIndex: data.count - 1 });
+					workerRef.current?.postMessage({
+						type: "renderSnapshot",
+						snapshotIndex: data.count - 1,
+					});
 					break;
 
 				case "snapshotRendered": {
@@ -475,7 +498,7 @@ export function ImagePainter() {
 			workerRef.current?.postMessage({
 				type: "enableSnapshotCapture",
 				frameCount: gifFrameCount,
-				maxIterations: 100000,
+				maxIterations: MAX_ITERATIONS,
 			});
 		}
 
@@ -487,7 +510,13 @@ export function ImagePainter() {
 		if (newIsTraining) {
 			workerRef.current?.postMessage({ type: "render" });
 		}
-	}, [imageLoaded, workerReady, trainingState.isTraining, autoCaptureEnabled, gifFrameCount]);
+	}, [
+		imageLoaded,
+		workerReady,
+		trainingState.isTraining,
+		autoCaptureEnabled,
+		gifFrameCount,
+	]);
 
 	// Reset training
 	const resetTraining = useCallback(() => {
@@ -527,7 +556,11 @@ export function ImagePainter() {
 		}
 
 		setIsGeneratingGif(true);
-		setGifProgress({ stage: "Generating frames", current: 0, total: gifFrameCount });
+		setGifProgress({
+			stage: "Generating frames",
+			current: 0,
+			total: gifFrameCount,
+		});
 
 		workerRef.current.postMessage({
 			type: "generateGif",
@@ -704,7 +737,10 @@ export function ImagePainter() {
 
 						<div className="flex flex-col items-center">
 							{/* Snapshot Display */}
-							<div className="bg-muted rounded-lg overflow-hidden mb-4" style={{ maxWidth: imageSize * 2 }}>
+							<div
+								className="bg-muted rounded-lg overflow-hidden mb-4"
+								style={{ maxWidth: imageSize * 2 }}
+							>
 								{snapshotFrames[currentSnapshotIndex] ? (
 									<img
 										src={snapshotFrames[currentSnapshotIndex]}
@@ -726,7 +762,9 @@ export function ImagePainter() {
 							<div className="flex items-center justify-center gap-4">
 								<button
 									type="button"
-									onClick={() => setCurrentSnapshotIndex((prev) => Math.max(0, prev - 1))}
+									onClick={() =>
+										setCurrentSnapshotIndex((prev) => Math.max(0, prev - 1))
+									}
 									disabled={currentSnapshotIndex === 0}
 									className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm
 										disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
@@ -738,7 +776,11 @@ export function ImagePainter() {
 								</span>
 								<button
 									type="button"
-									onClick={() => setCurrentSnapshotIndex((prev) => Math.min(snapshotFrames.length - 1, prev + 1))}
+									onClick={() =>
+										setCurrentSnapshotIndex((prev) =>
+											Math.min(snapshotFrames.length - 1, prev + 1),
+										)
+									}
 									disabled={currentSnapshotIndex === snapshotFrames.length - 1}
 									className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md font-medium text-sm
 										disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
@@ -759,7 +801,10 @@ export function ImagePainter() {
 
 						<div className="flex flex-col items-center">
 							{/* GIF Display */}
-							<div className="bg-muted rounded-lg overflow-hidden mb-4" style={{ maxWidth: imageSize * 2 }}>
+							<div
+								className="bg-muted rounded-lg overflow-hidden mb-4"
+								style={{ maxWidth: imageSize * 2 }}
+							>
 								<img
 									src={generatedGifUrl}
 									alt="Neural painting journey GIF"
@@ -821,7 +866,9 @@ export function ImagePainter() {
 							<button
 								type="button"
 								onClick={handleGenerateGif}
-								disabled={!imageLoaded || capturedSnapshots === 0 || isGeneratingGif}
+								disabled={
+									!imageLoaded || capturedSnapshots === 0 || isGeneratingGif
+								}
 								className="px-4 py-2 bg-primary text-primary-foreground rounded-md font-medium
                 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity text-sm md:text-base"
 							>
@@ -845,7 +892,7 @@ export function ImagePainter() {
 									<div
 										className="bg-primary h-2 rounded-full transition-all duration-300"
 										style={{
-											width: `${gifProgress.total > 0 ? (gifProgress.current / gifProgress.total) * 100 : 0}%`
+											width: `${gifProgress.total > 0 ? (gifProgress.current / gifProgress.total) * 100 : 0}%`,
 										}}
 									/>
 								</div>
@@ -1057,7 +1104,9 @@ export function ImagePainter() {
 
 								{/* GIF Generation Section */}
 								<div className="md:col-span-2 border-t border-border pt-6 mt-6">
-									<h3 className="text-md font-semibold mb-4">GIF Journey Generation</h3>
+									<h3 className="text-md font-semibold mb-4">
+										GIF Journey Generation
+									</h3>
 
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 										{/* Frame Count */}
@@ -1075,20 +1124,26 @@ export function ImagePainter() {
 												max="100"
 												step="5"
 												value={gifFrameCount}
-												onChange={(e) => setGifFrameCount(Number(e.target.value))}
+												onChange={(e) =>
+													setGifFrameCount(Number(e.target.value))
+												}
 												disabled={trainingState.isTraining}
 												className="w-full"
 											/>
 											<p className="text-xs text-muted-foreground mt-2">
-												Number of snapshots to capture. More frames = smoother journey.
+												Number of snapshots to capture. More frames = smoother
+												journey.
 											</p>
 										</div>
 
 										{/* Memory Estimate */}
 										<div className="bg-muted rounded p-3">
-											<div className="text-sm font-medium mb-2">Memory Estimate</div>
+											<div className="text-sm font-medium mb-2">
+												Memory Estimate
+											</div>
 											<div className="text-xs text-muted-foreground">
-												{memoryEstimate.totalFrames} frames × {imageSize}×{imageSize}px
+												{memoryEstimate.totalFrames} frames × {imageSize}×
+												{imageSize}px
 											</div>
 											<div className="text-lg font-mono font-bold text-primary mt-1">
 												{memoryEstimate.megabytes.toFixed(2)} MB
@@ -1110,13 +1165,18 @@ export function ImagePainter() {
 											onChange={(e) => setAutoCaptureEnabled(e.target.checked)}
 											className="cursor-pointer"
 										/>
-										<label htmlFor={autoCaptureId} className="text-sm cursor-pointer">
+										<label
+											htmlFor={autoCaptureId}
+											className="text-sm cursor-pointer"
+										>
 											Auto-capture snapshots during training
-											{autoCaptureEnabled && trainingState.isTraining && capturedSnapshots > 0 && (
-												<span className="ml-2 text-muted-foreground">
-													({capturedSnapshots}/{gifFrameCount} captured)
-												</span>
-											)}
+											{autoCaptureEnabled &&
+												trainingState.isTraining &&
+												capturedSnapshots > 0 && (
+													<span className="ml-2 text-muted-foreground">
+														({capturedSnapshots}/{gifFrameCount} captured)
+													</span>
+												)}
 										</label>
 									</div>
 								</div>
