@@ -23,37 +23,6 @@ export function calculateGifMemory(
   }
 }
 
-export function calculateSnapshotMilestones(
-  maxIterations: number,
-  frameCount: number,
-  mode: "linear" | "logarithmic" = "logarithmic",
-): number[] {
-  const milestones = [0]
-
-  if (frameCount <= 2) {
-    milestones.push(maxIterations)
-    return milestones
-  }
-
-  if (mode === "linear") {
-    const step = maxIterations / (frameCount - 1)
-    for (let i = 1; i < frameCount; i++) {
-      milestones.push(Math.floor(i * step))
-    }
-    return milestones
-  }
-
-  // Logarithmic spacing for better visual progression
-  const logBase = Math.pow(maxIterations, 1 / (frameCount - 2))
-
-  for (let i = 1; i < frameCount - 1; i++) {
-    milestones.push(Math.floor(Math.pow(logBase, i)))
-  }
-
-  milestones.push(maxIterations)
-  return milestones
-}
-
 export function morphFrames(
   frame1: Uint8ClampedArray,
   frame2: Uint8ClampedArray,
